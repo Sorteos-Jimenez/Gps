@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}</style>
+<title>Coordenadas a decimal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: dos pestañas (escribir por casillas / escanear) que comparten un único resultado con botón de copiar. */
+:root {
+  --bg: #EBF0EE;
+  --surface: #F7FAF9;
+  --fg: #12272B;
+  --muted: #5B7076;
+  --line: #C5D1CE;
+  --accent: #0A6A6F;
+  --accent-fg: #FFFFFF;
+  --box: #FFFFFF;
+  --warn: #B3261E;
+  --font-body: "Familjen Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1A1D; --surface: #152428; --fg: #E2EEEC; --muted: #8AA3A8; --line: #2A3F44;
+    --accent: #4FD1C0; --accent-fg: #06201F; --box: #0B1417; --warn: #FF8A80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1A1D; --surface: #152428; --fg: #E2EEEC; --muted: #8AA3A8; --line: #2A3F44;
+  --accent: #4FD1C0; --accent-fg: #06201F; --box: #0B1417; --warn: #FF8A80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 460px; margin-inline: auto; display: grid; gap: 16px; }
+header { display: grid; gap: 2px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; font-weight: 700; text-wrap: balance; }
+.hint { color: var(--muted); font-size: 14px; margin: 0; }
+
+.lbl { font-weight: 600; }
+.txt {
+  width: 100%; min-height: 52px; padding: 0 12px; font: 700 18px var(--font-mono); color: var(--fg);
+  background: var(--box); border: 1px solid var(--line); border-radius: 8px;
+}
+.txt:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.tabs button {
+  font: 600 16px var(--font-body); min-height: 48px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+}
+.tabs button + button { border-left: 1px solid var(--line); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-fg); }
+.panel { display: grid; gap: 16px; }
+.panel[hidden] { display: none; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 10px; }
+.card[hidden] { display: none; }
+.row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.row-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button {
+  font: 700 15px var(--font-mono); min-width: 44px; min-height: 40px; padding: 0 10px;
+  background: transparent; color: var(--muted); border: 0; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+
+.boxes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 3px; }
+.grp { display: inline-flex; align-items: flex-end; gap: 3px; }
+.grp[hidden] { display: none; }
+.check { display: flex; align-items: center; gap: 10px; min-height: 40px; font-weight: 600; cursor: pointer; }
+.check input { width: 22px; height: 22px; accent-color: var(--accent); }
+.sym { font: 700 20px var(--font-mono); color: var(--muted); padding-bottom: 6px; min-width: 8px; text-align: center; }
+.d {
+  width: clamp(26px, 7.4vw, 34px); height: 46px; padding: 0; text-align: center;
+  font: 700 22px var(--font-mono); color: var(--fg);
+  background: var(--box); border: 1px solid var(--line); border-radius: 6px;
+  caret-color: var(--accent);
+}
+.d:focus { border-color: var(--accent); }
+.d:focus-visible, .seg button:focus-visible, .tabs button:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+.actions { display: flex; gap: 10px; }
+.btn {
+  font: 600 17px var(--font-body); min-height: 52px; padding: 0 18px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--accent); background: transparent; color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); flex: 1; }
+.btn.big { min-height: 64px; font-size: 19px; width: 100%; }
+.btn.ghost { border-color: var(--line); color: var(--fg); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn svg { width: 24px; height: 24px; flex: none; }
+
+.msg { margin: 0; font-weight: 600; }
+.msg:empty { display: none; }
+.msg.err { color: var(--warn); }
+
+.tag { display: inline-block; font: 600 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); width: fit-content; }
+.tag[hidden] { display: none; }
+.shot { display: block; max-width: 100%; max-height: 160px; border-radius: 8px; border: 1px solid var(--line); object-fit: contain; background: var(--box); justify-self: start; }
+.shot[hidden] { display: none; }
+.out {
+  font: 700 clamp(19px, 5.6vw, 26px) var(--font-mono); line-height: 1.25; margin: 0;
+  background: var(--box); border: 1px solid var(--line); border-radius: 8px; padding: 14px 12px;
+  overflow-wrap: anywhere; user-select: all;
+}
+.plus-out { font-size: clamp(18px, 5.2vw, 22px); letter-spacing: .04em; }
+#result[data-stale="true"] .out { opacity: .45; }
+.result-actions { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.maplink { color: var(--accent); font-weight: 600; }
+</style>
+
+</head>
+<body>
+<main>
+  <header>
+    <span class="eyebrow">GMS → decimal</span>
+    <h1>Coordenadas a decimal</h1>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Modo">
+    <button type="button" role="tab" id="tab-write" aria-selected="true" aria-controls="panel-write">Escribir</button>
+    <button type="button" role="tab" id="tab-scan" aria-selected="false" aria-controls="panel-scan">Escanear</button>
+    <button type="button" role="tab" id="tab-plus" aria-selected="false" aria-controls="panel-plus">Plus Code</button>
+  </div>
+
+  <div class="panel" id="panel-write" role="tabpanel" aria-labelledby="tab-write">
+    <section class="card" aria-labelledby="h-lat">
+      <div class="row-head">
+        <h2 id="h-lat">Latitud</h2>
+        <div class="seg" role="group" aria-label="Hemisferio de la latitud" id="seg-lat"></div>
+      </div>
+      <div class="boxes" id="row-lat" role="group" aria-label="Dígitos de la latitud"></div>
+    </section>
+
+    <section class="card" aria-labelledby="h-lon">
+      <div class="row-head">
+        <h2 id="h-lon">Longitud</h2>
+        <div class="seg" role="group" aria-label="Hemisferio de la longitud" id="seg-lon"></div>
+      </div>
+      <div class="boxes" id="row-lon" role="group" aria-label="Dígitos de la longitud"></div>
+      <label class="check" for="decimals"><input type="checkbox" id="decimals"> Segundos con decimales</label>
+      <p class="hint">Un dígito por casilla, igual que tu brújula: LN 3°25′8″ y LO 76°14′40″. Con un punto, una coma o un espacio saltas al siguiente grupo y se completa con ceros a la izquierda (3 → 03). También puedes pegar el texto completo en cualquier casilla.</p>
+    </section>
+
+    <div class="actions">
+      <button class="btn primary" id="convert" type="button">Convertir</button>
+      <button class="btn ghost" id="clear" type="button">Borrar</button>
+    </div>
+    <p class="msg err" id="error" role="alert"></p>
+  </div>
+
+  <div class="panel" id="panel-scan" role="tabpanel" aria-labelledby="tab-scan" hidden>
+    <button class="btn primary big" id="scan" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M4 12h16"/></svg>
+      <span id="scan-label">Escanear con la cámara</span>
+    </button>
+    <button class="btn" id="pick" type="button">Elegir una captura o imagen</button>
+    <p class="hint">Sirve con una foto o con una captura de tu brújula (LN 3°25′8″ · LO 76°14′40″) o de coordenadas como 3°25'08.0"N 76°14'40.9"W.</p>
+    <p class="msg" id="status" role="status" aria-live="polite"></p>
+    <input type="file" id="file" accept="image/*" capture="environment" hidden>
+    <input type="file" id="file2" accept="image/*" hidden>
+  </div>
+
+  <div class="panel" id="panel-plus" role="tabpanel" aria-labelledby="tab-plus" hidden>
+    <section class="card">
+      <label class="lbl" for="plus-in">Plus Code de Google Maps</label>
+      <input class="txt" id="plus-in" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" value="CQ94+H4G Pradera, Valle del Cauca" placeholder="CQ94+H4G Pradera, Valle del Cauca">
+      <p class="hint">Pégalo como lo muestra Google Maps. Es exacto, a diferencia de los segundos de la brújula, que se redondean. Si trae solo 4 dígitos antes del signo + (CQ94+H4G), uso como referencia las coordenadas que tengas escritas en la pestaña Escribir, o tu último resultado.</p>
+    </section>
+    <div class="actions">
+      <button class="btn primary" id="plus-convert" type="button">Convertir</button>
+    </div>
+    <p class="msg" id="plus-msg" role="status" aria-live="polite"></p>
+  </div>
+
+  <section class="card" id="result" data-stale="false" aria-live="polite">
+    <span class="tag" id="tag">Ejemplo</span>
+    <img class="shot" id="shot" alt="Imagen escaneada" hidden>
+    <p class="out" id="out"></p>
+    <button class="btn" id="copy" type="button">Copiar</button>
+    <span class="tag">Plus Code</span>
+    <p class="out plus-out" id="plus"></p>
+    <div class="result-actions">
+      <button class="btn" id="copy-plus" type="button">Copiar Plus Code</button>
+      <a class="maplink" id="map" href="#" target="_blank" rel="noopener">Ver en el mapa</a>
+    </div>
+  </section>
+</main>
+
+<script>
+/*CORE*/
+function parseCoordinates(text) {
+  const t = String(text || '').replace(/\s+/g, ' ');
+  const dms = /(\d{1,3})\s*[°º˚]\s*(\d{1,2})\s*['′’´]\s*(\d{1,2}(?:[.,]\d+)?)\s*(?:["″”“]|['′’´]{2})?/g;
+  const found = [];
+  const raw = [];
+  for (const m of t.matchAll(dms)) {
+    const before = t.slice(Math.max(0, m.index - 12), m.index);
+    const after = t.slice(m.index + m[0].length);
+    const suf = after.match(/^\s*([NSEWO])(?![A-Za-z])/i);           // 3°25'8"N
+    const lab = before.match(/(?<![A-Za-z])L([NSEO])\s*[:=]?\s*$/i);  // LN 3°25'8"  (L = latitud/longitud)
+    const pre = before.match(/(?<![A-Za-z])([NSEWO])\s*[:=]?\s*$/i);  // N 3°25'8"
+    raw.push({ m, suf: suf && suf[1], pre: (lab && lab[1]) || (pre && pre[1]) });
+  }
+  // El primer valor decide el estilo: letra antes (LN 3°…, N 3°…) o después (3°…N).
+  const prefixStyle = raw.length > 0 && !!raw[0].pre;
+  for (const r of raw) {
+    let hem = prefixStyle ? (r.pre || null) : (r.suf || r.pre || null);
+    hem = hem ? hem.toUpperCase() : null;
+    if (hem === 'O') hem = 'W';
+    found.push({ d: r.m[1], m: r.m[2], s: r.m[3].replace(',', '.'), hem });
+  }
+  if (found.length >= 2) {
+    const a = found[0], b = found[1];
+    const axisOf = x => (x.hem === 'N' || x.hem === 'S') ? 'lat' : (x.hem ? 'lon' : null);
+    let aa = axisOf(a), bb = axisOf(b);
+    if (!aa && !bb) { aa = 'lat'; bb = 'lon'; }
+    else if (!aa) aa = bb === 'lat' ? 'lon' : 'lat';
+    else if (!bb) bb = aa === 'lat' ? 'lon' : 'lat';
+    if (aa !== bb) {
+      const lat = aa === 'lat' ? a : b, lon = aa === 'lat' ? b : a;
+      const assumed = !lat.hem || !lon.hem;
+      if (!lat.hem) lat.hem = 'N';
+      if (!lon.hem) lon.hem = 'W';
+      return { kind: 'dms', lat, lon, assumed };
+    }
+  }
+  const dec = t.match(/(-?\d{1,3}[.,]\d+)\s*[,;° ]\s*(-?\d{1,3}[.,]\d+)/);
+  if (dec) return { kind: 'dec', lat: parseFloat(dec[1].replace(',', '.')), lon: parseFloat(dec[2].replace(',', '.')) };
+  return null;
+}
+function dmsToDecimal(p) {
+  const v = Number(p.d) + Number(p.m) / 60 + parseFloat(String(p.s).replace(',', '.')) / 3600;
+  return (p.hem === 'S' || p.hem === 'W') ? -v : v;
+}
+function validateDms(p, isLat) {
+  const name = isLat ? 'latitud' : 'longitud';
+  const max = isLat ? 90 : 180;
+  const s = parseFloat(String(p.s).replace(',', '.'));
+  if (Number(p.d) > max) return 'Los grados de la ' + name + ' no pueden pasar de ' + max + '.';
+  if (Number(p.m) > 59) return 'Los minutos de la ' + name + ' deben estar entre 0 y 59.';
+  if (!(s >= 0 && s < 60)) return 'Los segundos de la ' + name + ' deben ser menores que 60.';
+  if (Number(p.d) === max && (Number(p.m) > 0 || s > 0)) return 'La ' + name + ' no puede pasar de ' + max + '°.';
+  return '';
+}
+function fmt(n) {
+  const s = n.toFixed(7);
+  return /^-0\.0*$/.test(s) ? s.slice(1) : s;
+}
+// Plus Code (Open Location Code), 10 dígitos: ~14 m de precisión, igual que el código completo de Google Maps.
+function plusCode(lat, lng, digits) {
+  digits = digits || 10;
+  const A = '23456789CFGHJMPQRVWX';
+  lat = Math.min(90, Math.max(-90, lat));
+  lng = ((lng + 180) % 360 + 360) % 360 - 180;
+  let latVal = Math.floor(Math.round((lat + 90) * 25000000 * 1e6) / 1e6);
+  let lngVal = Math.floor(Math.round((lng + 180) * 8192000 * 1e6) / 1e6);
+  if (latVal >= 180 * 25000000) latVal = 180 * 25000000 - 1;
+  let code = '';
+  for (let i = 0; i < 5; i++) {            // 5 dígitos de cuadrícula (se descartan en 10 dígitos)
+    code = A[(latVal % 5) * 4 + (lngVal % 4)] + code;
+    latVal = Math.floor(latVal / 5); lngVal = Math.floor(lngVal / 4);
+  }
+  for (let i = 0; i < 5; i++) {            // 5 pares lat/lng
+    code = A[lngVal % 20] + code;
+    code = A[latVal % 20] + code;
+    latVal = Math.floor(latVal / 20); lngVal = Math.floor(lngVal / 20);
+  }
+  return code.slice(0, 8) + '+' + code.slice(8, digits);
+}
+const PLUS_ALPHABET = '23456789CFGHJMPQRVWX';
+// Centro de la celda de un Plus Code completo (10 a 15 dígitos).
+function plusDecode(code) {
+  const c = String(code).toUpperCase().replace('+', '');
+  let lat = -90, lng = -180, r = 20;
+  for (let i = 0; i < 10; i += 2) {
+    lat += PLUS_ALPHABET.indexOf(c[i]) * r; lng += PLUS_ALPHABET.indexOf(c[i + 1]) * r;
+    if (i < 8) r /= 20;
+  }
+  let latH = r, lngH = r;
+  for (let i = 10; i < c.length; i++) {
+    const g = PLUS_ALPHABET.indexOf(c[i]); latH /= 5; lngH /= 4;
+    lat += Math.floor(g / 4) * latH; lng += (g % 4) * lngH;
+  }
+  return { lat: lat + latH / 2, lng: lng + lngH / 2, latH, lngH };
+}
+// Busca un Plus Code en un texto como "CQ94+H4G Pradera, Valle del Cauca".
+function extractPlus(text) {
+  const m = String(text || '').toUpperCase().match(/([23456789CFGHJMPQRVWX]{2,8})\+([23456789CFGHJMPQRVWX]{2,7})/);
+  if (!m || m[1].length % 2) return null;
+  return { head: m[1], tail: m[2], full: m[1].length === 8 };
+}
+// Completa un código corto con el prefijo del punto de referencia más cercano.
+function plusRecover(head, tail, refLat, refLng) {
+  const k = 8 - head.length;
+  const prefix = plusCode(refLat, refLng, 10).replace('+', '').slice(0, k);
+  const d = plusDecode(prefix + head + '+' + tail);
+  const res = Math.pow(20, 2 - k / 2), half = res / 2;
+  let lat = d.lat, lng = d.lng;
+  if (refLat + half < lat && lat - res >= -90) lat -= res;
+  else if (refLat - half > lat && lat + res <= 90) lat += res;
+  if (refLng + half < lng) lng -= res;
+  else if (refLng - half > lng) lng += res;
+  return { lat, lng, latH: d.latH };
+}
+/*END*/
+
+/* Mismas etiquetas que la brújula: LN/LS (latitud norte/sur) y LO/LE (longitud oeste/este). */
+const ROWS = {
+  lat: { degN: 2, hems: [{ v: 'N', t: 'LN', label: 'Latitud norte' }, { v: 'S', t: 'LS', label: 'Latitud sur' }], hem: 'N' },
+  lon: { degN: 3, hems: [{ v: 'W', t: 'LO', label: 'Longitud oeste' }, { v: 'E', t: 'LE', label: 'Longitud este' }], hem: 'W' }
+};
+let decimalsOn = false;
+const GROUP_DEFS = n => [
+  { k: 'deg', n, sym: '°' },
+  { k: 'min', n: 2, sym: '′' },
+  { k: 'sec', n: 2, sym: '.' },
+  { k: 'dec', n: 2, sym: '″' }
+];
+const $ = id => document.getElementById(id);
+const boxes = { lat: [], lon: [] };
+const flat = { lat: [], lon: [] };
+const wraps = { lat: [], lon: [] };
+const syms = { lat: [], lon: [] };
+
+/* ---------- Pestañas ---------- */
+function selectTab(name) {
+  ['write', 'scan', 'plus'].forEach(n => {
+    const on = n === name;
+    $('tab-' + n).setAttribute('aria-selected', String(on));
+    $('panel-' + n).hidden = !on;
+  });
+}
+$('tab-write').addEventListener('click', () => selectTab('write'));
+$('tab-scan').addEventListener('click', () => selectTab('scan'));
+$('tab-plus').addEventListener('click', () => selectTab('plus'));
+
+/* ---------- Casillas ---------- */
+function build(row) {
+  const cfg = ROWS[row];
+  const host = $('row-' + row);
+  const names = { deg: 'grados', min: 'minutos', sec: 'segundos', dec: 'decimales de segundo' };
+  GROUP_DEFS(cfg.degN).forEach((g, gi) => {
+    const wrap = document.createElement('span');
+    wrap.className = 'grp';
+    boxes[row][gi] = [];
+    for (let i = 0; i < g.n; i++) {
+      const el = document.createElement('input');
+      el.className = 'd';
+      el.type = 'text';
+      el.inputMode = 'numeric';
+      el.autocomplete = 'off';
+      el.spellcheck = false;
+      el.maxLength = 2;
+      el.id = 'b-' + row + '-' + g.k + '-' + i;
+      el.setAttribute('aria-label', (row === 'lat' ? 'Latitud' : 'Longitud') + ', ' + names[g.k] + ', dígito ' + (i + 1));
+      el.dataset.row = row; el.dataset.g = gi; el.dataset.i = i;
+      wrap.appendChild(el);
+      boxes[row][gi].push(el);
+      flat[row].push(el);
+      wire(el);
+    }
+    const sym = document.createElement('span');
+    sym.className = 'sym'; sym.textContent = gi === 2 ? '″' : g.sym; sym.setAttribute('aria-hidden', 'true');
+    wrap.appendChild(sym);
+    if (gi === 3) wrap.hidden = true;           // decimales de segundo: ocultos por defecto
+    wraps[row][gi] = wrap; syms[row][gi] = sym;
+    host.appendChild(wrap);
+  });
+  const seg = $('seg-' + row);
+  cfg.hems.forEach(h => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = h.t; b.id = 'hem-' + row + '-' + h.t;
+    b.title = h.label; b.setAttribute('aria-label', h.label);
+    b.dataset.v = h.v;
+    b.setAttribute('aria-pressed', String(cfg.hem === h.v));
+    b.addEventListener('click', () => { setHem(row, h.v); stale(true); });
+    seg.appendChild(b);
+  });
+}
+function setHem(row, v) {
+  ROWS[row].hem = v;
+  $('seg-' + row).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+function rebuildFlat() {
+  ['lat', 'lon'].forEach(row => {
+    flat[row].length = 0;
+    boxes[row].forEach((g, gi) => { if (!(gi === 3 && !decimalsOn)) g.forEach(b => flat[row].push(b)); });
+  });
+}
+function setDecimals(on) {
+  decimalsOn = on;
+  $('decimals').checked = on;
+  ['lat', 'lon'].forEach(row => {
+    wraps[row][3].hidden = !on;
+    syms[row][2].textContent = on ? '.' : '″';
+    if (!on) boxes[row][3].forEach(b => { b.value = ''; });
+  });
+  rebuildFlat();
+}
+function digitsOf(row, gi) { return boxes[row][gi].map(b => b.value).join(''); }
+function setGroup(row, gi, str, align) {
+  const arr = boxes[row][gi];
+  const s = align === 'right' ? str.padStart(arr.length, '0') : str;
+  arr.forEach((b, i) => { b.value = s[i] || ''; });
+}
+function padGroup(row, gi) {
+  if (gi > 2) return;
+  const d = digitsOf(row, gi);
+  if (d.length && d.length < boxes[row][gi].length) setGroup(row, gi, d, 'right');
+}
+function fillFrom(row, startIdx, digits) {
+  const list = flat[row];
+  let i = startIdx;
+  for (const ch of digits) { if (i >= list.length) break; list[i].value = ch; i++; }
+  list[Math.min(i, list.length - 1)].focus();
+}
+function fillRow(row, p) {
+  setGroup(row, 0, String(Number(p.d)), 'right');
+  setGroup(row, 1, String(Number(p.m)), 'right');
+  const [si, sd = ''] = String(p.s).split('.');
+  setGroup(row, 2, String(Number(si)), 'right');
+  if (sd && Number(sd) > 0 && !decimalsOn) setDecimals(true);
+  if (decimalsOn) setGroup(row, 3, sd.slice(0, 2), 'left');
+  setHem(row, p.hem);
+}
+function wire(el) {
+  el.addEventListener('focus', () => el.select());
+  el.addEventListener('input', () => {
+    const row = el.dataset.row, gi = +el.dataset.g;
+    const v = el.value;
+    const digits = v.replace(/\D/g, '');
+    if (digits) {
+      stale(true);
+      if (digits.length > 1) { el.value = ''; fillFrom(row, flat[row].indexOf(el), digits); return; }
+      el.value = digits;
+      const idx = flat[row].indexOf(el);
+      if (idx < flat[row].length - 1) flat[row][idx + 1].focus();
+    } else {
+      el.value = '';
+      if (v) jump(row, gi);
+    }
+  });
+  el.addEventListener('keydown', e => {
+    const row = el.dataset.row, idx = flat[row].indexOf(el);
+    if (e.key === 'Backspace' && el.value === '' && idx > 0) {
+      e.preventDefault(); flat[row][idx - 1].value = ''; flat[row][idx - 1].focus(); stale(true);
+    } else if (e.key === 'ArrowLeft' && idx > 0) { e.preventDefault(); flat[row][idx - 1].focus(); }
+    else if (e.key === 'ArrowRight' && idx < flat[row].length - 1) { e.preventDefault(); flat[row][idx + 1].focus(); }
+    else if (e.key === 'Enter') { e.preventDefault(); convert(); }
+  });
+  el.addEventListener('paste', e => {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    e.preventDefault();
+    const p = parseCoordinates(text);
+    if (p && p.kind === 'dms') {
+      fillRow('lat', p.lat); fillRow('lon', p.lon); stale(true); convert();
+    } else {
+      const digits = text.replace(/\D/g, '');
+      if (digits) { stale(true); fillFrom(el.dataset.row, flat[el.dataset.row].indexOf(el), digits); }
+    }
+  });
+}
+function jump(row, gi) {
+  padGroup(row, gi);
+  stale(true);
+  const lastGroup = decimalsOn ? 3 : 2;
+  if (gi < lastGroup) boxes[row][gi + 1][0].focus();
+  else if (row === 'lat') boxes.lon[0][0].focus();
+  else $('convert').focus();
+}
+function read(row) {
+  const g = i => digitsOf(row, i);
+  if (!g(0) && !g(1) && !g(2)) return null;
+  return { d: g(0) || '0', m: g(1) || '0', s: (g(2) || '0') + '.' + (g(3) || '0'), hem: ROWS[row].hem };
+}
+
+/* ---------- Resultado compartido ---------- */
+function stale(on) {
+  $('result').dataset.stale = String(on);
+  if (on) $('tag').hidden = true;
+}
+function showError(msg) { $('error').textContent = msg; }
+let lastLat = null, lastLon = null;
+function showResult(la, lo, photoUrl) {
+  const a = fmt(la), b = fmt(lo);
+  lastLat = la; lastLon = lo;
+  $('out').textContent = a + ', ' + b;
+  $('plus').textContent = plusCode(la, lo, 11);
+  $('map').href = 'https://www.google.com/maps?q=' + encodeURIComponent(a + ',' + b);
+  if (photoUrl) { $('shot').src = photoUrl; $('shot').hidden = false; } else { $('shot').hidden = true; }
+  $('result').hidden = false;
+  $('tag').hidden = true;
+  stale(false);
+  $('copy').textContent = 'Copiar';
+  $('copy-plus').textContent = 'Copiar Plus Code';
+}
+function convert() {
+  const lat = read('lat'), lon = read('lon');
+  if (!lat) { showError('Escribe la latitud en grados, minutos y segundos.'); boxes.lat[0][0].focus(); return; }
+  if (!lon) { showError('Escribe la longitud en grados, minutos y segundos.'); boxes.lon[0][0].focus(); return; }
+  const e = validateDms(lat, true) || validateDms(lon, false);
+  if (e) { showError(e); return; }
+  showError('');
+  showResult(dmsToDecimal(lat), dmsToDecimal(lon), null);
+}
+async function copyOut(btn, el, label) {
+  const text = el.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copiado';
+  } catch (_) {
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (_) {}
+    btn.textContent = ok ? 'Copiado' : 'Selecciona y copia';
+  }
+  setTimeout(() => { btn.textContent = label; }, 2000);
+}
+function clearAll() {
+  ['lat', 'lon'].forEach(r => flat[r].forEach(b => { b.value = ''; }));
+  showError('');
+  $('result').hidden = true;
+  boxes.lat[0][0].focus();
+}
+
+/* ---------- Plus Code ---------- */
+function setPlusMsg(msg, isErr) {
+  const el = $('plus-msg');
+  el.textContent = msg || '';
+  el.classList.toggle('err', !!isErr);
+}
+// Punto de referencia para completar un código corto: lo escrito en las casillas, si es válido; si no, el último resultado.
+function referencePoint() {
+  const lat = read('lat'), lon = read('lon');
+  if (lat && lon && !validateDms(lat, true) && !validateDms(lon, false)) {
+    return { lat: dmsToDecimal(lat), lon: dmsToDecimal(lon), from: 'las coordenadas escritas' };
+  }
+  if (lastLat !== null) return { lat: lastLat, lon: lastLon, from: 'tu último resultado' };
+  return null;
+}
+function plusConvert() {
+  const p = extractPlus($('plus-in').value);
+  if (!p) {
+    setPlusMsg('No encontré un Plus Code. Escríbelo como CQ94+H4G Pradera o como código completo, 67M5CQ94+H4G.', true);
+    return;
+  }
+  let lat, lng, note;
+  if (p.full) {
+    const d = plusDecode(p.head + '+' + p.tail);
+    lat = d.lat; lng = d.lng;
+    note = 'Código completo, sin referencia.';
+  } else {
+    const ref = referencePoint();
+    if (!ref) { setPlusMsg('Con un código corto necesito una referencia. Escribe antes tus coordenadas en la pestaña Escribir o pega el código completo.', true); return; }
+    const r = plusRecover(p.head, p.tail, ref.lat, ref.lon);
+    lat = r.lat; lng = r.lng;
+    note = 'Referencia usada: ' + ref.from + ' (' + fmt(ref.lat) + ', ' + fmt(ref.lon) + '). Si no es tu zona, pega el código completo.';
+  }
+  if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) { setPlusMsg('Ese Plus Code queda fuera del mapa.', true); return; }
+  showResult(lat, lng, null);
+  setPlusMsg(note, false);
+}
+$('plus-convert').addEventListener('click', plusConvert);
+$('plus-in').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); plusConvert(); } });
+
+/* ---------- Escaneo ---------- */
+let sample = null;
+const ASSUMED = 'No vi letra de hemisferio (N/S, E/W): usé norte y oeste.';
+const ERR = {
+  not_granted: 'Para leer la imagen necesito tu permiso. Usa la pestaña Escribir.',
+  sampling_disabled: 'El escaneo no está disponible en tu cuenta. Usa la pestaña Escribir.',
+  images_unavailable: 'Esta vista no puede enviar imágenes. Usa la pestaña Escribir.',
+  image_rejected: 'No pude abrir esa imagen. Prueba con otra.',
+  rate_limited: 'Hiciste muchos escaneos seguidos. Espera un momento e inténtalo otra vez.',
+  session_expired: 'Tu sesión venció. Vuelve a iniciar sesión e inténtalo otra vez.',
+  cancelled: ''
+};
+function setStatus(msg, isErr) {
+  const el = $('status');
+  el.textContent = msg || '';
+  el.classList.toggle('err', !!isErr);
+}
+function validParsed(p) {
+  if (!p) return false;
+  if (p.kind === 'dms') return !(validateDms(p.lat, true) || validateDms(p.lon, false));
+  return Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180;
+}
+async function scan(file) {
+  const label = $('scan-label');
+  $('scan').disabled = true; $('pick').disabled = true; label.textContent = 'Leyendo la imagen…';
+  setStatus('');
+  const url = URL.createObjectURL(file);
+  try {
+    const prompt =
+      'La imagen es una foto o captura de coordenadas geográficas en grados, minutos y segundos ' +
+      '(por ejemplo 3°25\'08.0"N 76°14\'40.9"W) o en decimales. Algunas brújulas las muestran con etiquetas ' +
+      'como LN 3°25\'8" y LO 76°14\'40" (LN = latitud norte, LO = longitud oeste). ' +
+      'Transcribe exactamente las dos coordenadas como aparecen, con sus etiquetas o letras de hemisferio ' +
+      '(LN, LS, LO, LE, N, S, E, W, O) si las hay, y sin añadir nada que no se vea. ' +
+      'Escribe el símbolo de segundos como dos apóstrofes (\'\') para no romper el JSON. ' +
+      'Responde solo con JSON de esta forma: {"text":"LN 3°25\'8\'\' LO 76°14\'40\'\'"}. ' +
+      'Si no hay coordenadas legibles responde {"text":""}.';
+    const r = await sample.json(prompt, { images: file });
+    const p = parseCoordinates(r && r.text);
+    if (!validParsed(p)) {
+      setStatus('No encontré coordenadas legibles en la imagen. Prueba con una más cercana o usa la pestaña Escribir.', true);
+      return;
+    }
+    if (p.kind === 'dms') {
+      fillRow('lat', p.lat); fillRow('lon', p.lon);
+      showResult(dmsToDecimal(p.lat), dmsToDecimal(p.lon), url);
+      setStatus(p.assumed ? ASSUMED : 'Listo. Si un dígito no coincide, corrígelo en la pestaña Escribir.', false);
+    } else {
+      showResult(p.lat, p.lon, url);
+      setStatus('Listo.', false);
+    }
+  } catch (e) {
+    const code = e && e.code;
+    const msg = code in ERR ? ERR[code] : 'No pude leer la imagen. Inténtalo de nuevo.';
+    if (msg) setStatus(msg, true);
+  } finally {
+    $('scan').disabled = !sample; $('pick').disabled = !sample;
+    label.textContent = 'Escanear con la cámara';
+  }
+}
+$('scan').addEventListener('click', () => { $('file').value = ''; $('file').click(); });
+$('pick').addEventListener('click', () => { $('file2').value = ''; $('file2').click(); });
+$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f && sample) scan(f); });
+$('file2').addEventListener('change', () => { const f = $('file2').files[0]; if (f && sample) scan(f); });
+
+/* ---------- Arranque ---------- */
+build('lat'); build('lon');
+rebuildFlat();
+$('decimals').addEventListener('change', () => { setDecimals($('decimals').checked); stale(true); });
+$('convert').addEventListener('click', convert);
+$('clear').addEventListener('click', clearAll);
+$('copy').addEventListener('click', () => copyOut($('copy'), $('out'), 'Copiar'));
+$('copy-plus').addEventListener('click', () => copyOut($('copy-plus'), $('plus'), 'Copiar Plus Code'));
+
+(function example() {
+  const p = parseCoordinates('LN 3°25\'8" LO 76°14\'40"');
+  fillRow('lat', p.lat); fillRow('lon', p.lon);
+  convert();
+  $('tag').hidden = false;
+})();
+
+(async function init() {
+  $('scan').disabled = true; $('pick').disabled = true;
+  try {
+    sample = await claude.use('sample');
+    if (sample) {
+      const lim = await sample.limits().catch(() => null);
+      if (!(lim && lim.images)) sample = null;
+    }
+  } catch (_) { sample = null; }
+  $('scan').disabled = !sample; $('pick').disabled = !sample;
+  if (!sample) setStatus('El escaneo no está disponible en esta vista. Usa la pestaña Escribir.', false);
+})();
+</script>
+
+</body>
+</html>
