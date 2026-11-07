@@ -77,6 +77,9 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; font-weight: 700; text-wra
 }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); }
+.fmt-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.fmt-row .lbl { font-size: 15px; }
+.fmt-row .seg button { min-width: 78px; }
 
 .boxes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px 3px; }
 .grp { display: inline-flex; align-items: flex-end; gap: 3px; }
@@ -139,6 +142,13 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; font-weight: 700; text-wra
   </div>
 
   <div class="panel" id="panel-write" role="tabpanel" aria-labelledby="tab-write">
+    <div class="fmt-row">
+      <span class="lbl" id="fmt-label">Formato de tu brújula</span>
+      <div class="seg" role="group" aria-labelledby="fmt-label">
+        <button type="button" id="fmt-L" aria-pressed="true">LN · LO</button>
+        <button type="button" id="fmt-W" aria-pressed="false">N · W</button>
+      </div>
+    </div>
     <section class="card" aria-labelledby="h-lat">
       <div class="row-head">
         <h2 id="h-lat">Latitud</h2>
@@ -154,7 +164,7 @@ h1 { margin: 0; font-size: 1.75rem; line-height: 1.1; font-weight: 700; text-wra
       </div>
       <div class="boxes" id="row-lon" role="group" aria-label="Dígitos de la longitud"></div>
       <label class="check" for="decimals"><input type="checkbox" id="decimals"> Segundos con decimales</label>
-      <p class="hint">Un dígito por casilla, igual que tu brújula: LN 3°25′8″ y LO 76°14′40″. Con un punto, una coma o un espacio saltas al siguiente grupo y se completa con ceros a la izquierda (3 → 03). También puedes pegar el texto completo en cualquier casilla.</p>
+      <p class="hint">Un dígito por casilla. Elige arriba cómo escribe tu brújula el hemisferio: LN 3°25′8″ · LO 76°14′40″ o N 3°25′8″ · W 76°14′40″. Con un punto, una coma o un espacio saltas al siguiente grupo y se completa con ceros a la izquierda (3 → 03). También puedes pegar el texto completo en cualquier casilla.</p>
     </section>
 
     <div class="actions">
@@ -326,6 +336,15 @@ const ROWS = {
   lon: { degN: 3, hems: [{ v: 'W', t: 'LO', label: 'Longitud oeste' }, { v: 'E', t: 'LE', label: 'Longitud este' }], hem: 'W' }
 };
 let decimalsOn = false;
+let hemStyle = 'L';   // 'L' = LN/LS/LO/LE (brújula en español), 'W' = N/S/W/E
+try { if (localStorage.getItem('hemStyle') === 'W') hemStyle = 'W'; } catch (_) {}
+// Detecta cómo están escritas las letras de hemisferio en un texto (null si no hay).
+function detectStyle(text) {
+  const t = String(text || '');
+  if (/(?<![A-Za-z])L[NSEO](?![A-Za-z])/i.test(t)) return 'L';
+  if (/\d\s*(?:["″”']|'')?\s*[NSEWO](?![A-Za-z])|(?<![A-Za-z])[NSEWO]\s*:?\s*\d/i.test(t)) return 'W';
+  return null;
+}
 const GROUP_DEFS = n => [
   { k: 'deg', n, sym: '°' },
   { k: 'min', n: 2, sym: '′' },
@@ -385,7 +404,7 @@ function build(row) {
   const seg = $('seg-' + row);
   cfg.hems.forEach(h => {
     const b = document.createElement('button');
-    b.type = 'button'; b.textContent = h.t; b.id = 'hem-' + row + '-' + h.t;
+    b.type = 'button'; b.textContent = hemStyle === 'W' ? h.v : h.t; b.id = 'hem-' + row + '-' + h.v;
     b.title = h.label; b.setAttribute('aria-label', h.label);
     b.dataset.v = h.v;
     b.setAttribute('aria-pressed', String(cfg.hem === h.v));
@@ -396,6 +415,18 @@ function build(row) {
 function setHem(row, v) {
   ROWS[row].hem = v;
   $('seg-' + row).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+}
+function setHemStyle(style) {
+  hemStyle = style === 'W' ? 'W' : 'L';
+  ['lat', 'lon'].forEach(row => {
+    $('seg-' + row).querySelectorAll('button').forEach(b => {
+      const h = ROWS[row].hems.find(x => x.v === b.dataset.v);
+      if (h) b.textContent = hemStyle === 'W' ? h.v : h.t;
+    });
+  });
+  $('fmt-L').setAttribute('aria-pressed', String(hemStyle === 'L'));
+  $('fmt-W').setAttribute('aria-pressed', String(hemStyle === 'W'));
+  try { localStorage.setItem('hemStyle', hemStyle); } catch (_) {}
 }
 function rebuildFlat() {
   ['lat', 'lon'].forEach(row => {
@@ -469,6 +500,7 @@ function wire(el) {
     e.preventDefault();
     const p = parseCoordinates(text);
     if (p && p.kind === 'dms') {
+      const st = detectStyle(text); if (st) setHemStyle(st);
       fillRow('lat', p.lat); fillRow('lon', p.lon); stale(true); convert();
     } else {
       const digits = text.replace(/\D/g, '');
@@ -625,6 +657,7 @@ async function scan(file) {
       return;
     }
     if (p.kind === 'dms') {
+      const st = detectStyle(r && r.text); if (st) setHemStyle(st);
       fillRow('lat', p.lat); fillRow('lon', p.lon);
       showResult(dmsToDecimal(p.lat), dmsToDecimal(p.lon), url);
       setStatus(p.assumed ? ASSUMED : 'Listo. Si un dígito no coincide, corrígelo en la pestaña Escribir.', false);
@@ -649,6 +682,9 @@ $('file2').addEventListener('change', () => { const f = $('file2').files[0]; if 
 /* ---------- Arranque ---------- */
 build('lat'); build('lon');
 rebuildFlat();
+setHemStyle(hemStyle);
+$('fmt-L').addEventListener('click', () => setHemStyle('L'));
+$('fmt-W').addEventListener('click', () => setHemStyle('W'));
 $('decimals').addEventListener('change', () => { setDecimals($('decimals').checked); stale(true); });
 $('convert').addEventListener('click', convert);
 $('clear').addEventListener('click', clearAll);
